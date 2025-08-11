@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
+import { Clock, ArrowRight, ChevronDown } from "lucide-react";
 
 interface Dish {
   id: number;
   name: string;
   description: string;
   image: string;
+  distance?: string;
+  category?: string;
+  rating?: string;
 }
 
 interface GalleryImage {
@@ -17,12 +21,20 @@ interface GalleryImage {
 const DiningSection: React.FC = () => {
   const [scrollY, setScrollY] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
+  const [visibleCards, setVisibleCards] = useState<boolean[]>([
+    false,
+    false,
+    false,
+    false,
+  ]);
+  const [currentGalleryIndex, setCurrentGalleryIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
   const quoteRef = useRef<HTMLDivElement>(null);
   const dishesRef = useRef<HTMLDivElement>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
 
-  // Sample data
+  // Sample data with updated fields for destination-style cards
   const signatureDishes: Dish[] = [
     {
       id: 1,
@@ -31,6 +43,9 @@ const DiningSection: React.FC = () => {
         "Traditional feast served on banana leaf with 28 authentic dishes from the Travancore kingdom",
       image:
         "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=400&h=300&fit=crop",
+      distance: "25 min",
+      category: "Traditional",
+      rating: "4.9",
     },
     {
       id: 2,
@@ -39,6 +54,9 @@ const DiningSection: React.FC = () => {
         "Fresh Malabar catch cooked in coconut milk with traditional spices, a Portuguese influence",
       image:
         "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=400&h=300&fit=crop",
+      distance: "20 min",
+      category: "Colonial",
+      rating: "4.8",
     },
     {
       id: 3,
@@ -46,7 +64,11 @@ const DiningSection: React.FC = () => {
       description:
         "Fragrant basmati rice layered with tender meat and aromatic spices from the Malabar coast",
       image:
-        "https://images.unsplash.com/photo-1563379091339-03246963d51a?w=400&h=300&fit=crop",
+        "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=400&h=300&fit=crop",
+        
+      distance: "30 min",
+      category: "Biryani",
+      rating: "4.7",
     },
     {
       id: 4,
@@ -55,6 +77,9 @@ const DiningSection: React.FC = () => {
         "Colonial-inspired dishes blending Portuguese and British influences with Kerala flavors",
       image:
         "https://images.unsplash.com/photo-1606491956689-2ea866880c84?w=400&h=300&fit=crop",
+      distance: "35 min",
+      category: "Fusion",
+      rating: "4.6",
     },
   ];
 
@@ -89,6 +114,29 @@ const DiningSection: React.FC = () => {
     },
   ];
 
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Auto-advance gallery on mobile
+  useEffect(() => {
+    if (isMobile) {
+      const interval = setInterval(() => {
+        setCurrentGalleryIndex((prev) => 
+          prev === galleryImages.length - 1 ? 0 : prev + 1
+        );
+      }, 4000);
+      return () => clearInterval(interval);
+    }
+  }, [isMobile, galleryImages.length]);
+
   // Parallax scroll effect
   useEffect(() => {
     const handleScroll = () => {
@@ -117,64 +165,112 @@ const DiningSection: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  // Function removed as it was unused
+  // Intersection Observer for card animations
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            // For desktop, find cards within the scrolling container
+            const cards = entry.target.querySelectorAll(".destination-card");
+            // For mobile, find cards in the parent container
+            const mobileCards = document.querySelectorAll(".mobile-card");
+            
+            const targetCards = isMobile ? mobileCards : cards;
+            
+            targetCards.forEach((_, index) => {
+              setTimeout(() => {
+                setVisibleCards((prev) => {
+                  const newVisible = [...prev];
+                  newVisible[index] = true;
+                  return newVisible;
+                });
+              }, index * 200);
+            });
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    // Observe different elements based on mobile/desktop
+    if (isMobile) {
+      const mobileContainer = document.querySelector('.mobile-dishes-container');
+      if (mobileContainer) {
+        observer.observe(mobileContainer);
+      }
+    } else if (dishesRef.current) {
+      observer.observe(dishesRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [isMobile]);
+
+  const nextGalleryImage = () => {
+    setCurrentGalleryIndex((prev) => 
+      prev === galleryImages.length - 1 ? 0 : prev + 1
+    );
+  };
+
+  const prevGalleryImage = () => {
+    setCurrentGalleryIndex((prev) => 
+      prev === 0 ? galleryImages.length - 1 : prev - 1
+    );
+  };
 
   return (
-    <div className="w-full bg-heritage-bg-secondary ">
-      {/* Hero Section with Parallax */}
-      <div ref={heroRef} className="relative h-[60vh] overflow-hidden">
+    <div className="w-full bg-heritage-bg-secondary">
+      {/* Hero Section with Parallax - Mobile Optimized */}
+      <div ref={heroRef} className="relative h-[50vh] md:h-[60vh] overflow-hidden">
         {/* Background image with parallax effect */}
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
             backgroundImage: "url('/diningparallax.jpg')",
-            transform: `translateY(${scrollY * 0.5}px)`,
+            transform: `translateY(${scrollY * (isMobile ? 0.3 : 0.5)}px)`,
             transition: "transform 75ms linear",
           }}
         />
         <div className="absolute inset-0 bg-black bg-opacity-40" />
 
-        {/* Quote with fade-up animation */}
+        {/* Quote with fade-up animation - Mobile Responsive */}
         <div
           ref={quoteRef}
-          className={`absolute inset-0 flex items-center justify-center px-4 transition-all duration-1000 ${
+          className={`absolute inset-0 flex items-center justify-center px-4 md:px-8 transition-all duration-1000 ${
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
           }`}
         >
           <h1 className="text-heritage-bg-secondary text-center max-w-4xl font-playfair">
-            <span className="block text-xl md:text-2xl lg:text-3xl font-light leading-tight">
+            <span className="block text-lg md:text-2xl lg:text-3xl font-light leading-tight">
               "Welcome to Kohinoor Restaurant —
             </span>
-            <span className="block text-lg md:text-xl lg:text-2xl font-light mt-2 text-gray-200 font-cormorant">
+            <span className="block text-base md:text-xl lg:text-2xl font-light mt-2 text-gray-200 font-cormorant">
               where European and Indian cuisines blend in colonial elegance"
             </span>
           </h1>
         </div>
       </div>
 
-      {/* Signature Dishes Carousel */}
-      <div className="py-16">
-        <div className="max-w-full mx-auto px-2">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-light text-center mb-6 text-text-primary-title font-playfair">
+      {/* Signature Dishes Section - Mobile Responsive */}
+      <div className="py-8 md:py-16">
+        <div className="max-w-full mx-auto px-4 md:px-6">
+          <h2 className="text-2xl md:text-4xl lg:text-5xl font-light text-center mb-4 md:mb-6 text-text-primary-title font-playfair">
             Heritage Dining
           </h2>
-          <p className="text-center text-text-primary-title/80 text-lg md:text-xl lg:text-2xl max-w-3xl mx-auto leading-relaxed mb-12 font-cormorant">
+          <p className="text-center text-text-primary-title/80 text-base md:text-xl lg:text-2xl max-w-3xl mx-auto leading-relaxed mb-8 md:mb-12 font-cormorant px-4">
             Experience the legendary Kohinoor Restaurant, a star attraction of
             the 1970s Malayalam film world, now revived with a menu that
             perfectly blends European and Indian cuisines in an atmosphere of
             colonial grandeur.
           </p>
 
-          {/* Decorative SVG Element with Extending Lines */}
-          <div className="flex items-center justify-center mb-16">
-            {/* Left Line */}
-            <div className="flex-1 h-px bg-gray-300 mx-8"></div>
-
-            {/* SVG Element */}
+          {/* Decorative SVG Element - Mobile Responsive */}
+          <div className="flex items-center justify-center mb-8 md:mb-16">
+            <div className="flex-1 h-px bg-gray-300 mx-4 md:mx-8"></div>
             <div className="flex-shrink-0">
               <svg
-                width="60"
-                height="60"
+                width={isMobile ? "40" : "60"}
+                height={isMobile ? "40" : "60"}
                 viewBox="0 0 200 200"
                 xmlns="http://www.w3.org/2000/svg"
                 className="text-primary-bg"
@@ -212,134 +308,141 @@ const DiningSection: React.FC = () => {
                 </g>
               </svg>
             </div>
-
-            {/* Right Line */}
-            <div className="flex-1 h-px bg-gray-300 mx-8"></div>
+            <div className="flex-1 h-px bg-gray-300 mx-4 md:mx-8"></div>
           </div>
 
+          {/* Dishes Container - Responsive Layout */}
           <div className="relative">
-            {/* Dishes Container */}
-            <div
-              ref={dishesRef}
-              className="flex overflow-x-auto scrollbar-hide gap-12 px-8 scroll-smooth cursor-grab active:cursor-grabbing py-4"
-              style={{
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-                scrollSnapType: "x mandatory",
-              }}
-              onMouseDown={(e) => {
-                const startX = e.pageX - dishesRef.current!.offsetLeft;
-                const scrollLeft = dishesRef.current!.scrollLeft;
-                let isDown = true;
+            {/* Desktop: Horizontal Scrolling */}
+            <div className="hidden md:block">
+              <div
+                ref={dishesRef}
+                className="flex justify-center items-center overflow-x-auto scrollbar-hide gap-12 px-8 scroll-smooth cursor-grab active:cursor-grabbing py-4"
+                style={{
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none",
+                  scrollSnapType: "x mandatory",
+                }}
+                onMouseDown={(e) => {
+                  const startX = e.pageX - dishesRef.current!.offsetLeft;
+                  const scrollLeft = dishesRef.current!.scrollLeft;
+                  let isDown = true;
 
-                const handleMouseMove = (e: MouseEvent) => {
-                  if (!isDown) return;
-                  e.preventDefault();
-                  const x = e.pageX - dishesRef.current!.offsetLeft;
-                  const walk = (x - startX) * 2;
-                  dishesRef.current!.scrollLeft = scrollLeft - walk;
-                };
+                  const handleMouseMove = (e: MouseEvent) => {
+                    if (!isDown) return;
+                    e.preventDefault();
+                    const x = e.pageX - dishesRef.current!.offsetLeft;
+                    const walk = (x - startX) * 2;
+                    dishesRef.current!.scrollLeft = scrollLeft - walk;
+                  };
 
-                const handleMouseUp = () => {
-                  isDown = false;
-                  document.removeEventListener("mousemove", handleMouseMove);
-                  document.removeEventListener("mouseup", handleMouseUp);
-                };
+                  const handleMouseUp = () => {
+                    isDown = false;
+                    document.removeEventListener("mousemove", handleMouseMove);
+                    document.removeEventListener("mouseup", handleMouseUp);
+                  };
 
-                document.addEventListener("mousemove", handleMouseMove);
-                document.addEventListener("mouseup", handleMouseUp);
-              }}
-            >
-              {signatureDishes.map((dish) => (
+                  document.addEventListener("mousemove", handleMouseMove);
+                  document.addEventListener("mouseup", handleMouseUp);
+                }}
+              >
+                {signatureDishes.map((dish, index) => (
+                  <div
+                    key={dish.id}
+                    className={`destination-card flex-none w-[250px] md:w-[300px] lg:w-[350px] group relative overflow-hidden rounded-3xl bg-heritage-bg-accent shadow-lg hover:shadow-2xl transition-all duration-700 transform border-2 border-text-description-2 snap-center select-none ${
+                      visibleCards[index]
+                        ? "opacity-100 translate-y-0"
+                        : "opacity-0 translate-y-12"
+                    }`}
+                    style={{ transitionDelay: `${index * 100}ms` }}
+                  >
+                    {/* Image Container */}
+                    <div className="relative h-64 md:h-72 overflow-hidden">
+                      <img
+                        src={dish.image}
+                        alt={dish.name}
+                        loading="lazy"
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        draggable={false}
+                      />
+                      <div className="absolute inset-0"></div>
+                      <div className="absolute bottom-4 right-4 flex items-center gap-1 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full">
+                        <Clock size={14} className="text-primary-text/70" />
+                        <span className="text-sm font-medium text-primary-text">
+                          {dish.distance}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-6 md:p-8">
+                      <h3 className="text-xl md:text-2xl font-bold text-text-primary-title mb-4 group-hover:text-text-primary-title/80 transition-colors duration-300 font-playfair">
+                        {dish.name}
+                      </h3>
+                      <p className="text-text-primary-title/70 leading-relaxed mb-6 line-clamp-3 md:line-clamp-none font-cormorant">
+                        {dish.description}
+                      </p>
+                      <button className="self-start group/btn inline-flex items-center gap-2 px-6 py-3 text-sm font-normal tracking-[0.15em] text-button-accent-bg border-2 border-button-accent-bg rounded-md transition-all duration-300 hover:shadow-lg hover:shadow-button-accent-bg/25 hover:-translate-y-0.5 hover:tracking-widest hover:bg-button-accent-bg hover:text-heritage-bg-accent">
+                        Order Now
+                        <ArrowRight
+                          size={16}
+                          className="transition-transform duration-300 group-hover/btn:translate-x-1"
+                        />
+                      </button>
+                    </div>
+                    <div className="absolute inset-0 rounded-none border-2 border-transparent group-hover:border-primary-text/20 transition-colors duration-300 pointer-events-none"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Mobile: Vertical Stack */}
+            <div className="block md:hidden space-y-6 px-4 mobile-dishes-container">
+              {signatureDishes.map((dish, index) => (
                 <div
                   key={dish.id}
-                  className="flex-none w-[250px] md:w-[300px] lg:w-[350px] h-[550px] bg-heritage-bg-secondary border-2  border-text-primary-title overflow-hidden transition-all duration-500 transform hover:-translate-y-3 snap-center select-none relative group rounded-3xl"
+                  className={`mobile-card destination-card w-full group relative overflow-hidden rounded-2xl bg-heritage-bg-accent shadow-lg transition-all duration-700 transform border-2 border-text-description-2 ${
+                    visibleCards[index]
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 translate-y-12"
+                  }`}
+                  style={{ transitionDelay: `${index * 100}ms` }}
                 >
-                  {/* Full-screen image */}
-                  <div className="w-full h-full overflow-hidden relative rounded-3xl">
-                    <img
-                      src={dish.image}
-                      alt={dish.name}
-                      loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      draggable={false}
-                    />
+                  {/* Mobile Card Layout */}
+                  <div className="flex flex-row h-40">
+                    {/* Image Container - Left Side */}
+                    <div className="relative w-2/5 overflow-hidden">
+                      <img
+                        src={dish.image}
+                        alt={dish.name}
+                        loading="lazy"
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        draggable={false}
+                      />
+                      <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-white/90 backdrop-blur-sm rounded-full">
+                        <Clock size={12} className="text-primary-text/70" />
+                        <span className="text-xs font-medium text-primary-text">
+                          {dish.distance}
+                        </span>
+                      </div>
+                    </div>
 
-                    {/* Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
-
-                    {/* Category Badge */}
-                    {/* <div className="absolute top-4 left-4">
-                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-white/90 backdrop-blur-sm text-primary-text rounded-full text-sm font-medium">
-                        Heritage Dish
-                      </span>
-                    </div> */}
-
-                    {/* Rating */}
-                    {/* <div className="absolute top-4 right-4 flex items-center gap-1 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full">
-                      <svg
-                        className="w-4 h-4 text-yellow-500 fill-current"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                      <span className="text-sm font-medium text-primary-text">
-                        4.8
-                      </span>
-                    </div> */}
-
-                    {/* Distance/Time */}
-                    {/* <div className="absolute bottom-4 right-4 flex items-center gap-1 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full">
-                      <svg
-                        className="w-4 h-4 text-primary-text/70"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <span className="text-sm font-medium text-primary-text">
-                        25 min
-                      </span>
-                    </div> */}
+                    {/* Content - Right Side */}
+                    <div className="w-3/5 p-4 flex flex-col justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold text-text-primary-title mb-2 font-playfair leading-tight">
+                          {dish.name}
+                        </h3>
+                        <p className="text-text-primary-title/70 text-sm leading-relaxed line-clamp-3 font-cormorant">
+                          {dish.description}
+                        </p>
+                      </div>
+                      <button className="self-start inline-flex items-center gap-1 px-4 py-2 text-xs font-normal tracking-[0.1em] text-button-accent-bg border border-button-accent-bg rounded-md transition-all duration-300 hover:bg-button-accent-bg hover:text-heritage-bg-accent mt-2">
+                        Order Now
+                        <ArrowRight size={12} />
+                      </button>
+                    </div>
                   </div>
-
-                  {/* Content */}
-                  <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-                    <h3 className="text-xl md:text-2xl font-bold text-white mb-4 group-hover:text-white/80 transition-colors duration-300 leading-tight drop-shadow-lg">
-                      {dish.name}
-                    </h3>
-
-                    <p className="text-white text-sm mb-6 leading-relaxed drop-shadow-md">
-                      {dish.description}
-                    </p>
-
-                    {/* CTA Button */}
-                    <button className="group/btn inline-flex items-center gap-2 px-6 py-3 border-2  text-heritage-bg-secondary font-semibold rounded-xl hover:bg-button-accent-bg transition-all duration-300 hover:shadow-lg hover: border- shadow-primary-text/25 transform hover:-translate-y-0.5">
-                      Order Now
-                      <svg
-                        className="w-4 h-4 transition-transform duration-300 group-hover/btn:translate-x-1"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {/* Hover Effect Border */}
-                  <div className="absolute inset-0 rounded-3xl border-2 border-transparent group-hover:border-primary-text/20 transition-colors duration-300 pointer-events-none"></div>
                 </div>
               ))}
             </div>
@@ -347,139 +450,41 @@ const DiningSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Explore Menu CTA */}
-      <div className="py-16 bg-primary-bg relative overflow-hidden">
-        {/* Decorative SVG Elements */}
-        <div className="absolute top-8 left-8 opacity-10">
-          <svg
-            width="40"
-            height="40"
-            viewBox="0 0 100 100"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M50,10 C60,20 60,30 50,40 C40,30 40,20 50,10"
-              fill="#514f13"
-            />
-            <path
-              d="M50,10 C60,20 60,30 50,40 C40,30 40,20 50,10"
-              fill="#514f13"
-              transform="rotate(90 50 50)"
-            />
-            <path
-              d="M50,10 C60,20 60,30 50,40 C40,30 40,20 50,10"
-              fill="#514f13"
-              transform="rotate(180 50 50)"
-            />
-            <path
-              d="M50,10 C60,20 60,30 50,40 C40,30 40,20 50,10"
-              fill="#514f13"
-              transform="rotate(270 50 50)"
-            />
+      {/* Explore Menu CTA - Mobile Responsive */}
+      <div className="py-8 md:py-16 bg-primary-bg relative overflow-hidden">
+        {/* Decorative SVG Elements - Hidden on small mobile */}
+        <div className="hidden sm:block absolute top-8 left-8 opacity-10">
+          <svg width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <path d="M50,10 C60,20 60,30 50,40 C40,30 40,20 50,10" fill="#514f13" />
+            <path d="M50,10 C60,20 60,30 50,40 C40,30 40,20 50,10" fill="#514f13" transform="rotate(90 50 50)" />
+            <path d="M50,10 C60,20 60,30 50,40 C40,30 40,20 50,10" fill="#514f13" transform="rotate(180 50 50)" />
+            <path d="M50,10 C60,20 60,30 50,40 C40,30 40,20 50,10" fill="#514f13" transform="rotate(270 50 50)" />
           </svg>
         </div>
 
-        <div className="absolute top-12 right-12 opacity-10">
-          <svg
-            width="32"
-            height="32"
-            viewBox="0 0 100 100"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <circle cx="50" cy="50" r="8" fill="#514f13" />
-            <circle cx="50" cy="20" r="4" fill="#514f13" />
-            <circle cx="80" cy="50" r="4" fill="#514f13" />
-            <circle cx="50" cy="80" r="4" fill="#514f13" />
-            <circle cx="20" cy="50" r="4" fill="#514f13" />
-          </svg>
-        </div>
-
-        <div className="absolute bottom-8 left-16 opacity-10">
-          <svg
-            width="36"
-            height="36"
-            viewBox="0 0 100 100"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M20,50 L80,50 M50,20 L50,80"
-              stroke="#514f13"
-              strokeWidth="2"
-              fill="none"
-            />
-            <circle
-              cx="50"
-              cy="50"
-              r="15"
-              stroke="#514f13"
-              strokeWidth="2"
-              fill="none"
-            />
-          </svg>
-        </div>
-
-        <div className="absolute bottom-12 right-8 opacity-10">
-          <svg
-            width="44"
-            height="44"
-            viewBox="0 0 100 100"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M30,30 L70,30 L70,70 L30,70 Z"
-              fill="none"
-              stroke="#514f13"
-              strokeWidth="2"
-            />
-            <path
-              d="M40,40 L60,40 L60,60 L40,60 Z"
-              fill="none"
-              stroke="#514f13"
-              strokeWidth="2"
-            />
-            <circle cx="50" cy="50" r="3" fill="#514f13" />
-          </svg>
-        </div>
-
-        <div className="text-center max-w-4xl mx-auto px-8 relative z-10">
-          {/* Hook Content */}
-          <h3 className="text-3xl md:text-4xl lg:text-5xl font-light text-text-primary-title mb-6 font-playfair">
+        <div className="text-center max-w-4xl mx-auto px-4 md:px-8 relative z-10">
+          <h3 className="text-2xl md:text-4xl lg:text-5xl font-light text-text-primary-title mb-4 md:mb-6 font-playfair">
             Ready to Experience Colonial Cuisine?
           </h3>
-          <p className="text-text-primary-title/80 text-lg md:text-xl lg:text-2xl leading-relaxed mb-12 font-cormorant">
+          <p className="text-text-primary-title/80 text-base md:text-xl lg:text-2xl leading-relaxed mb-8 md:mb-12 font-cormorant">
             From traditional Kerala Sadhya to European fusion dishes, our
             Kohinoor Restaurant menu offers a culinary journey through time.
             Each dish tells a story of heritage and tradition.
           </p>
 
           {/* Decorative Line Above Button */}
-          <div className="flex items-center justify-center mb-8">
+          <div className="flex items-center justify-center mb-6 md:mb-8">
             <div className="flex-1 h-px bg-primary-text/20 mx-4"></div>
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 100 100"
-              xmlns="http://www.w3.org/2000/svg"
-              className="mx-4"
-            >
-              <path
-                d="M50,20 C60,30 60,40 50,50 C40,40 40,30 50,20"
-                fill="#514f13"
-                opacity="0.6"
-              />
-              <path
-                d="M50,20 C60,30 60,40 50,50 C40,40 40,30 50,20"
-                fill="#514f13"
-                opacity="0.6"
-                transform="rotate(180 50 50)"
-              />
+            <svg width="20" height="20" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="mx-4">
+              <path d="M50,20 C60,30 60,40 50,50 C40,40 40,30 50,20" fill="#514f13" opacity="0.6" />
+              <path d="M50,20 C60,30 60,40 50,50 C40,40 40,30 50,20" fill="#514f13" opacity="0.6" transform="rotate(180 50 50)" />
             </svg>
             <div className="flex-1 h-px bg-primary-text/20 mx-4"></div>
           </div>
 
-          {/* Bigger Explore Menu Button */}
+          {/* Responsive Button */}
           <button
-            className="px-12 py-6 text-xl md:text-2xl font-medium text-heritage-bg-secondary bg-button-accent-bg rounded-2xl transition-all duration-300 hover:bg-primary-text hover:text-primary-bg transform hover:scale-105 hover:shadow-xl"
+            className="px-8 md:px-12 py-4 md:py-6 text-lg md:text-xl lg:text-2xl font-medium text-heritage-bg-secondary bg-button-accent-bg rounded-2xl transition-all duration-300 hover:bg-primary-text hover:text-primary-bg transform hover:scale-105 hover:shadow-xl"
             style={{
               fontFamily: "Work Sans, sans-serif",
               borderWidth: "3px",
@@ -488,32 +493,16 @@ const DiningSection: React.FC = () => {
           >
             EXPLORE OUR MENU
           </button>
-
-          {/* Decorative Line Below Button */}
-          <div className="flex items-center justify-center mt-8">
-            <div className="flex-1 h-px bg-text-primary-title/20 mx-4"></div>
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 100 100"
-              xmlns="http://www.w3.org/2000/svg"
-              className="mx-4"
-            >
-              <circle cx="50" cy="50" r="8" fill="#514f13" opacity="0.4" />
-              <circle cx="50" cy="50" r="3" fill="#514f13" opacity="0.8" />
-            </svg>
-            <div className="flex-1 h-px bg-text-primary-title/20 mx-4"></div>
-          </div>
         </div>
       </div>
 
-      {/* Dining Hall & Kitchen Gallery - 80% screen height with gaps */}
-      <div className="py-16 bg-text-primary-title relative">
-        <div className="mx-8">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-light text-center text-heritage-bg-tertiary mb-6 font-playfair">
+      {/* Gallery Section - Mobile Responsive */}
+      <div className="py-8 md:py-16 bg-text-primary-title relative">
+        <div className="mx-4 md:mx-8">
+          <h2 className="text-2xl md:text-4xl lg:text-5xl font-light text-center text-heritage-bg-tertiary mb-4 md:mb-6 font-playfair">
             Our Spaces
           </h2>
-          <p className="text-center text-heritage-bg-tertiary/80 mb-12 max-w-3xl mx-auto text-lg md:text-xl lg:text-2xl leading-relaxed font-light font-cormorant">
+          <p className="text-center text-heritage-bg-tertiary/80 mb-8 md:mb-12 max-w-3xl mx-auto text-base md:text-xl lg:text-2xl leading-relaxed font-light font-cormorant px-4">
             Step into the grandeur of colonial elegance where every corner tells
             a story. From our heritage dining hall with its majestic
             architecture to our state-of-the-art kitchen where culinary magic
@@ -521,7 +510,8 @@ const DiningSection: React.FC = () => {
             designed to transport you to an era of timeless sophistication.
           </p>
 
-          <div className="relative h-[70vh] border-2 border-heritage-bg-accent  overflow-hidden rounded-3xl">
+          {/* Desktop Gallery */}
+          <div className="hidden md:block relative h-[70vh] border-2 border-heritage-bg-accent overflow-hidden rounded-3xl">
             <div
               ref={galleryRef}
               className="flex h-full overflow-x-auto gap-0 scroll-smooth cursor-grab active:cursor-grabbing"
@@ -554,12 +544,7 @@ const DiningSection: React.FC = () => {
               }}
             >
               {galleryImages.map((image, index) => (
-                <div
-                  key={image.id}
-                  className={`flex-none w-full h-full relative snap-center select-none ${
-                    index > 0 ? "" : ""
-                  }`}
-                >
+                <div key={image.id} className="flex-none w-full h-full relative snap-center select-none">
                   <div className="h-full overflow-hidden relative rounded-2xl">
                     <img
                       src={image.src}
@@ -568,11 +553,8 @@ const DiningSection: React.FC = () => {
                       className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
                       draggable={false}
                     />
-                    {/* Darker overlay for better text readability */}
                     <div className="absolute inset-0 bg-black bg-opacity-20"></div>
                   </div>
-
-                  {/* Text content positioned inside the image */}
                   <div className="absolute inset-0 flex flex-col justify-center items-start p-12 max-w-2xl bg-text-primary-title">
                     <h3 className="text-heritage-bg-tertiary text-3xl md:text-5xl font-light mb-4 drop-shadow-xl font-playfair">
                       {image.label}
@@ -582,32 +564,75 @@ const DiningSection: React.FC = () => {
                       {image.description}
                     </p>
                   </div>
-
-                  {/* Slide Indicator */}
-                  {/* <div className="absolute bottom-8 right-8 text-gray-800 text-sm drop-shadow-lg font-bold bg-white px-3 py-1">
-                    {String(index + 1).padStart(2, '0')} / {String(galleryImages.length).padStart(2, '0')}
-                  </div> */}
                 </div>
               ))}
             </div>
+          </div>
 
-            {/* Navigation Dots */}
-            {/* <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-3 z-20">
-              {galleryImages.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    if (galleryRef.current) {
-                      galleryRef.current.scrollTo({
-                        left: index * galleryRef.current.clientWidth,
-                        behavior: 'smooth'
-                      });
-                    }
-                  }}
-                  className="w-3 h-3 bg-gray-800 hover:bg-gray-600 transition-colors duration-300 border border-white"
-                />
-              ))}
-            </div> */}
+          {/* Mobile Gallery - Vertical Stack with Auto-Play */}
+          <div className="block md:hidden">
+            <div className="relative h-[60vh] border-2 border-heritage-bg-accent overflow-hidden rounded-2xl">
+              <div className="relative w-full h-full">
+                {galleryImages.map((image, index) => (
+                  <div
+                    key={image.id}
+                    className={`absolute inset-0 transition-opacity duration-1000 ${
+                      index === currentGalleryIndex ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  >
+                    <img
+                      src={image.src}
+                      alt={image.label}
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                      draggable={false}
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+                    
+                    {/* Mobile Content Overlay */}
+                    <div className="absolute inset-0 flex flex-col justify-end p-6">
+                      <h3 className="text-heritage-bg-tertiary text-2xl font-light mb-2 drop-shadow-xl font-playfair">
+                        {image.label}
+                      </h3>
+                      <div className="w-12 h-0.5 bg-button-accent-bg mb-4 drop-shadow-lg"></div>
+                      <p className="text-heritage-bg-tertiary/80 text-sm leading-relaxed drop-shadow-lg font-light font-cormorant">
+                        {image.description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Mobile Gallery Navigation */}
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                {galleryImages.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentGalleryIndex(index)}
+                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                      index === currentGalleryIndex 
+                        ? 'bg-button-accent-bg scale-125' 
+                        : 'bg-white/50'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Mobile Swipe Indicators */}
+              <button
+                onClick={prevGalleryImage}
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/50 transition-colors duration-300"
+              >
+                <ChevronDown size={20} className="rotate-90" />
+              </button>
+              
+              <button
+                onClick={nextGalleryImage}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/50 transition-colors duration-300"
+              >
+                <ChevronDown size={20} className="-rotate-90" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -621,19 +646,26 @@ const DiningSection: React.FC = () => {
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }
+        
+        .line-clamp-3 {
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
       `}</style>
 
       {/* Decorative SVG Element with Extending Lines */}
-      <div className="relative py-16 bg-text-primary-title">
+      <div className="relative py-8 md:py-16 bg-text-primary-title">
         <div className="flex items-center justify-center">
           {/* Left Line */}
-          <div className="flex-1 h-px bg-gray-300 mx-8"></div>
+          <div className="flex-1 h-px bg-gray-300 mx-4 md:mx-8"></div>
 
           {/* SVG Element */}
-          <div className="flex-shrink-0 text-text-primary-title ">
+          <div className="flex-shrink-0 text-text-primary-title">
             <svg
-              width="60"
-              height="60"
+              width={isMobile ? "40" : "60"}
+              height={isMobile ? "40" : "60"}
               viewBox="0 0 200 200"
               xmlns="http://www.w3.org/2000/svg"
             >
@@ -672,7 +704,7 @@ const DiningSection: React.FC = () => {
           </div>
 
           {/* Right Line */}
-          <div className="flex-1 h-px bg-gray-300 mx-8"></div>
+          <div className="flex-1 h-px bg-gray-300 mx-4 md:mx-8"></div>
         </div>
       </div>
     </div>
